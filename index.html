@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>營養飲食 VLM Demo - AI 智慧分析系統</title>
+    <style>
+        :root {
+            /* 醫療風格配色 */
+            --primary: #009688; /* 醫療綠 */
+            --primary-dark: #00796b;
+            --secondary: #2196f3; /* 科技藍 */
+            --accent: #ff9800; /* 警示橘 */
+            --danger: #f44336; /* 危險紅 */
+            --success: #4caf50; /* 安全綠 */
+            --bg: #f4f7f6;
+            --surface: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --border: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0,0,0,0.05);
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        
+        body { background-color: var(--bg); color: var(--text-main); line-height: 1.6; padding-bottom: 40px; }
+
+        /* 通用元件 */
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 1rem; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; box-shadow: 0 2px 4px rgba(0,150,136,0.3); }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: rgba(0,150,136,0.1); }
+        .btn-sm { padding: 6px 12px; font-size: 0.85rem; width: auto; }
+        
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .flex-gap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* 標題區 */
+        header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #ddd; position: relative; }
+        h1 { color: var(--primary-dark); font-size: 1.8rem; margin-bottom: 5px; }
+        .subtitle { color: var(--text-sub); font-size: 0.95rem; }
+        .reset-btn { position: absolute; right: 0; top: 0; font-size: 0.8rem; }
+
+        /* 病人資訊卡 */
+        .patient-card { background: linear-gradient(to right bottom, #ffffff, #f0fdfc); border-left: 5px solid var(--primary); }
+        .patient-header { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-right: 5px; margin-bottom: 5px; }
+        .tag-disease { background: #e3f2fd; color: #1565c0; }
+        .tag-allergy { background: #ffebee; color: #c62828; }
+        .tag-med { background: #fff3e0; color: #ef6c00; }
+        .patient-stats { display: flex; gap: 15px; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 10px; }
+        
+        /* 上傳區 */
+        .upload-area { border: 2px dashed var(--primary); border-radius: var(--radius); padding: 30px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; background: #fafafa; }
+        .upload-area:hover { background: #f0fdfc; border-color: var(--primary-dark); }
+        .upload-area input { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer; }
+        .preview-img { max-width: 100%; max-height: 300px; border-radius: 8px; display: none; margin: 15px auto; object-fit: cover; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .upload-placeholder { color: #888; }
+        .upload-placeholder strong { color: var(--primary); font-size: 1.1rem; }
+
+        /* 分析結果區 */
+        #result-section { display: none; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .result-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .food-name { font-size: 1.5rem; font-weight: bold; color: var(--text-main); }
+        .confidence { font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px; color: #666; }
+        
+        .section-title { font-size: 1.1rem; font-weight: bold; margin: 15px 0 10px 0; border-left: 4px solid var(--secondary); padding-left: 10px; color: var(--text-main); }
+        
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip { background: #e0e0e0; padding: 5px 12px; border-radius: 16px; font-size: 0.9rem; }
+
+        /* 營養表格與進度條 */
+        .nutrition-row { display: grid; grid-template-columns: 80px 1fr 50px; align-items: center; margin-bottom: 8px; font-size: 0.9rem; }
+        .progress-bg { background: #e0e0e0; height: 8px; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--secondary); width: 0%; transition: width 1s ease-out; }
+        .val-danger { color: var(--danger); font-weight: bold; }
+        .bar-danger { background: var(--danger); }
+        .bar-warn { background: var(--accent); }
+
+        /* 建議區塊 */
+        .recommendation-box { border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-top: 10px; }
+        .rec-danger { background: #ffebee; border-color: #ffcdd2; }
+        .rec-warn { background: #fff3e0; border-color: #ffe0b2; }
+        .rec-safe { background: #e8f5e9; border-color: #c8e6c9; }
+        
+        .status-badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; color: white; font-weight: bold; font-size: 0.9rem; margin-left: auto; }
+        .bg-red { background: var(--danger); }
+        .bg-orange { background: var(--accent); }
+        .bg-green { background: var(--success); }
+
+        .advice-list { list-style: none; padding: 0; }
+        .advice-list li { position: relative; padding-left: 20px; margin-bottom: 8px; font-size: 0.95rem; }
+        .advice-list li::before { content: "•"; color: var(--primary); font-weight: bold; position: absolute; left: 0; }
+        
+        /* 歷史紀錄 */
+        .history-item { padding: 10px; border-bottom: 1px solid #eee; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; cursor: pointer; transition: 0.2s; }
+        .history-item:hover { background: #f9f9f9; }
+        .history-date { font-size: 0.8rem; color: #888; }
+        .history-food { font-weight: 600; }
+        
+        /* Loading */
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; display: none; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* SVG Icons */
+        .icon { width: 20px; height: 20px; fill: currentColor; vertical-align: middle; }
+
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .patient-stats { flex-wrap: wrap; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>營養飲食 VLM Demo</h1>
+        <p class="subtitle">拍照辨識食物 • 估算營養 • 提供患者個人化建議</p>
+        <button class="btn btn-outline btn-sm reset-btn" onclick="app.resetDemo()">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            重置
+        </button>
+    </header>
+
+    <div class="card patient-card">
+        <div class="patient-header flex-between">
+            <h3 style="display:flex; align-items:center; gap:8px;">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <span id="p-name">載入中...</span>
+            </h3>
+            <button class="btn btn-outline btn-sm" onclick="app.switchPatient()">切換病人</button>
+        </div>
+        <div class="patient-stats">
+            <span id="p-basic"></span>
+            <span>BMI: <strong id="p-bmi"></strong></span>
+        </div>
+        <div style="margin-top: 10px;">
+            <div style="margin-bottom:5px;"><small>診斷/疾病：</small><span id="p-diseases"></span></div>
+            <div style="margin-bottom:5px;"><small>用藥：</small><span id="p-meds"></span></div>
+            <div style="margin-bottom:5px;"><small>過敏原：</small><span id="p-allergies"></span></div>
+            <div><small>健康目標：</small><span id="p-goal" style="color:var(--primary-dark); font-weight:bold;"></span></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="upload-area" id="drop-zone">
+            <input type="file" id="file-input" accept="image/*" onchange="app.handleFileSelect(event)">
+            <div class="upload-placeholder" id="upload-msg">
+                <svg class="icon" style="width:48px; height:48px; color:var(--primary); margin-bottom:10px;" viewBox="0 0 24 24"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-8c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg>
+                <p><strong>點擊拍照 / 上傳照片</strong></p>
+                <p style="font-size:0.9rem; margin-top:5px;">或直接點擊下方按鈕進行「隨機模擬分析」</p>
+            </div>
+            <img id="preview" class="preview-img" alt="Food Preview">
+        </div>
+        
+        <div id="control-panel" style="margin-top: 20px;">
+            <button id="analyze-btn" class="btn btn-primary" onclick="app.startAnalysis()">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 13.17l7.59-7.59L19 7l-9 10z"/></svg>
+                開始 VLM 分析 (AI 自動識別)
+            </button>
+            <p style="text-align:center; font-size:0.85rem; color:#888; margin-top:10px;">
+                *若未上傳照片，AI 將會隨機模擬一種食物情境。
+            </p>
+        </div>
+    </div>
+
+    <div id="result-section" class="card">
+        <div class="result-header flex-between">
+            <div>
+                <div class="food-name" id="res-food-name">--</div>
+                <div class="confidence" id="res-confidence">AI 信心度: --%</div>
+            </div>
+            <div id="res-badge" class="status-badge bg-green">--</div>
+        </div>
+
+        <div class="section-title">識別內容與份量</div>
+        <div class="grid-2">
+            <div>
+                <small style="color:#666;">內容物成分：</small>
+                <div id="res-ingredients" class="chip-container" style="margin-top:5px;"></div>
+            </div>
+            <div>
+                <small style="color:#666;">估計份量：</small>
+                <div style="font-size:1.1rem; font-weight:bold; margin-top:5px;">
+                    <span id="res-size">--</span> 
+                    <span style="font-size:0.9rem; color:#666;" id="res-grams">(--g)</span>
+                </div>
+                <div id="res-texture" style="font-size:0.85rem; color:#888; margin-top:5px;"></div>
+            </div>
+        </div>
+
+        <div class="section-title">營養成分分析 (每份)</div>
+        <div id="nutrition-chart">
+            </div>
+
+        <div class="section-title">臨床個人化建議</div>
+        <div id="res-recommendation-box" class="recommendation-box rec-safe">
+            <h4 id="res-decision" style="margin-bottom:10px;">建議食用</h4>
+            <ul id="res-advices" class="advice-list"></ul>
+            
+            <div style="margin-top:15px; border-top:1px dashed #ccc; padding-top:10px;">
+                <strong>💡 替代方案 / 改進建議：</strong>
+                <ul id="res-alternatives" class="advice-list" style="margin-top:5px;"></ul>
+            </div>
+        </div>
+
+        <div class="flex-gap" style="margin-top: 20px;">
+            <button class="btn btn-outline btn-sm" onclick="app.copyReport()">複製報告文字</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title" style="margin-top:0;">歷史紀錄 (LocalStorage)</div>
+        <div id="history-list">
+            <div style="text-align:center; color:#999; padding:20px;">尚無紀錄</div>
+        </div>
+    </div>
+
+</div>
+
+<div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <h3>AI 視覺分析中...</h3>
+    <p style="color:#666;" id="loading-text">正在分析影像特徵...</p>
+</div>
+
+<script>
+/**
+ * 營養飲食 VLM Demo - 前端邏輯核心
+ * 作者：AI Assistant
+ */
+
+// --- 1. 資料模擬 (Mock Data) ---
+
+// 病人資料庫
+const PATIENTS = [
+    {
+        id: 1,
+        name: "王小明 (Wang)",
+        age: 56, gender: "男", height: 172, weight: 78,
+        diseases: ["第2型糖尿病 (T2DM)", "高血壓 (HTN)"],
+        meds: ["Metformin", "Amlodipine"],
+        allergies: ["無"],
+        goal: "嚴格控糖、減重",
+        conditions: { dm: true, htn: true, ckd: false, dysphagia: false, stomach: false }
+    },
+    {
+        id: 2,
+        name: "林美玲 (Lin)",
+        age: 68, gender: "女", height: 155, weight: 52,
+        diseases: ["慢性腎臟病 (CKD Stage 3)", "痛風"],
+        meds: ["利尿劑", "降尿酸藥"],
+        allergies: ["海鮮 (Seafood)"],
+        goal: "低鈉、低鉀、低磷",
+        conditions: { dm: false, htn: true, ckd: true, dysphagia: false, stomach: false }
+    },
+    {
+        id: 3,
+        name: "陳大偉 (Chen)",
+        age: 75, gender: "男", height: 165, weight: 60,
+        diseases: ["中風後吞嚥障礙", "胃食道逆流 (GERD)"],
+        meds: ["抗凝血劑", "PPI 胃藥"],
+        allergies: ["花生 (Peanuts)"],
+        goal: "預防嗆咳、避免刺激性食物",
+        conditions: { dm: false, htn: false, ckd: false, dysphagia: true, stomach: true }
+    }
+];
+
+// 食物資料庫 (VLM 知識庫)
+const FOOD_DB = {
+    bento: {
+        name: "台式排骨便當",
+        ingredients: ["白飯", "炸排骨", "滷蛋", "高麗菜", "豆干", "酸菜"],
+        portion: { size: "Large", grams: 550 },
+        nutrition: { calories: 850, carbs: 105, protein: 35, fat: 38, sugar: 8, sodium: 1200, potassium: 400, phosphorus: 300 },
+        texture: "IDDSI 7 (Regular) - 混合質地",
+        tags: ["high_sodium", "high_carb", "fried"]
+    },
+    beef_noodle: {
+        name: "紅燒牛肉麵",
+        ingredients: ["麵條", "牛腱肉", "紅燒湯頭", "青江菜", "酸菜", "蔥花"],
+        portion: { size: "Large", grams: 700 },
+        nutrition: { calories: 750, carbs: 85, protein: 45, fat: 28, sugar: 5, sodium: 2400, potassium: 500, phosphorus: 350 },
+        texture: "IDDSI 6 (Soft & Bite-Sized) - 若肉燉爛",
+        tags: ["high_sodium", "soup"]
+    },
+    pork_rice: {
+        name: "滷肉飯 + 燙青菜",
+        ingredients: ["白飯", "滷肉燥", "醬油", "豬油", "燙空心菜"],
+        portion: { size: "Medium", grams: 350 },
+        nutrition: { calories: 550, carbs: 65, protein: 15, fat: 25, sugar: 6, sodium: 900, potassium: 250, phosphorus: 150 },
+        texture: "IDDSI 7 (Regular)",
+        tags: ["high_fat", "high_sodium"]
+    },
+    salad: {
+        name: "雞肉凱薩沙拉",
+        ingredients: ["蘿美生菜", "雞胸肉", "麵包丁", "起司粉", "凱薩醬"],
+        portion: { size: "Medium", grams: 280 },
+        nutrition: { calories: 350, carbs: 15, protein: 28, fat: 22, sugar: 3, sodium: 600, potassium: 450, phosphorus: 200 },
+        texture: "IDDSI 7 (Regular) - 生菜纖維粗",
+        tags: ["raw", "healthy_option"]
+    },
+    fried_chicken: {
+        name: "炸雞排",
+        ingredients: ["雞胸肉", "炸粉", "胡椒鹽", "食用油"],
+        portion: { size: "Large", grams: 300 },
+        nutrition: { calories: 650, carbs: 40, protein: 35, fat: 38, sugar: 1, sodium: 1100, potassium: 300, phosphorus: 250 },
+        texture: "IDDSI 7 (Regular) - 硬脆外皮",
+        tags: ["fried", "high_fat", "high_sodium"]
+    },
+    burger: {
+        name: "雙層牛肉起司漢堡",
+        ingredients: ["漢堡麵包", "牛肉漢堡排", "起司片", "酸黃瓜", "番茄醬", "芥末"],
+        portion: { size: "Medium", grams: 320 },
+        nutrition: { calories: 680, carbs: 45, protein: 32, fat: 40, sugar: 9, sodium: 1350, potassium: 350, phosphorus: 400 },
+        texture: "IDDSI 7 (Regular)",
+        tags: ["high_sodium", "high_fat", "processed"]
+    },
+    bubble_tea: {
+        name: "珍珠奶茶 (全糖)",
+        ingredients: ["紅茶", "奶精粉", "果糖", "珍珠(樹薯粉)", "冰塊"],
+        portion: { size: "Large (700ml)", grams: 700 },
+        nutrition: { calories: 650, carbs: 90, protein: 2, fat: 30, sugar: 65, sodium: 50, potassium: 80, phosphorus: 100 },
+        texture: "IDDSI 2 (Mildly Thick) + 固體珍珠 (窒息風險)",
+        tags: ["high_sugar", "liquid_calorie", "choking_hazard"]
+    },
+    fruit: {
+        name: "綜合水果拼盤",
+        ingredients: ["西瓜", "芭樂", "鳳梨", "小番茄"],
+        portion: { size: "Medium", grams: 300 },
+        nutrition: { calories: 150, carbs: 38, protein: 2, fat: 0.5, sugar: 28, sodium: 5, potassium: 450, phosphorus: 30 },
+        texture: "IDDSI 7 (Regular) - 部分硬質",
+        tags: ["high_potassium", "high_sugar_natural"]
+    },
+    packaged: {
+        name: "花生夾心餅乾",
+        ingredients: ["麵粉", "花生醬", "棕櫚油", "糖", "奶粉"],
+        portion: { size: "Small (1 pack)", grams: 80 },
+        nutrition: { calories: 400, carbs: 50, protein: 8, fat: 20, sugar: 25, sodium: 300, potassium: 120, phosphorus: 100 },
+        texture: "IDDSI 7 (Regular) - 易碎屑",
+        tags: ["allergen_peanut", "allergen_milk", "processed"]
+    }
+};
+
+// --- 2. 應用程式邏輯 (Application Logic) ---
+
+const app = {
+    currentPatientIndex: 0,
+    selectedFile: null,
+    
+    init: function() {
+        this.renderPatient();
+        this.loadHistory();
+    },
+
+    // 切換病人
+    switchPatient: function() {
+        this.currentPatientIndex = (this.currentPatientIndex + 1) % PATIENTS.length;
+        this.renderPatient();
+        // 如果已經有分析結果，重新分析一次以更新建議
+        const resultSection = document.getElementById('result-section');
+        if (resultSection.style.display === 'block') {
+            this.startAnalysis(true); // true = silent reload
+        }
+    },
+
+    renderPatient: function() {
+        const p = PATIENTS[this.currentPatientIndex];
+        const bmi = (p.weight / ((p.height/100) ** 2)).toFixed(1);
+        
+        document.getElementById('p-name').textContent = p.name;
+        document.getElementById('p-basic').textContent = `${p.age}歲 / ${p.gender} / ${p.height}cm / ${p.weight}kg`;
+        document.getElementById('p-bmi').textContent = bmi;
+        
+        // Helper to render tags
+        const renderTags = (arr, cls, target) => {
+            const html = arr.map(item => `<span class="tag ${cls}">${item}</span>`).join('');
+            document.getElementById(target).innerHTML = html;
+        };
+
+        renderTags(p.diseases, 'tag-disease', 'p-diseases');
+        renderTags(p.meds, 'tag-med', 'p-meds');
+        renderTags(p.allergies, 'tag-allergy', 'p-allergies');
+        document.getElementById('p-goal').textContent = p.goal;
+    },
+
+    handleFileSelect: function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            this.selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = document.getElementById('preview');
+                const uploadMsg = document.getElementById('upload-msg');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                uploadMsg.style.display = 'none'; // Hide text placeholder
+                document.getElementById('drop-zone').style.borderColor = '#ccc';
+            };
+            reader.readAsDataURL(file);
+        }
+    },
+
+    resetDemo: function() {
+        this.selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('upload-msg').style.display = 'block'; // Show placeholder
+        document.getElementById('result-section').style.display = 'none';
+        window.scrollTo(0,0);
+    },
+
+    // 核心：模擬 AI 分析
+    mockAnalyze: function(foodKey, patient) {
+        const food = FOOD_DB[foodKey];
+        const res = { ...food }; // Clone
+        res.warnings = [];
+        res.recommendations = [];
+        res.alternatives = [];
+        res.decision = "Recommend"; // Default
+        res.confidence = 88 + Math.floor(Math.random() * 11); // 88-99%
+
+        // 規則引擎 (Rule Engine)
+        const cond = patient.conditions;
+        const nut = food.nutrition;
+        
+        // 1. 過敏檢查 (Highest Priority)
+        const allergens = { "花生": "peanut", "海鮮": "seafood", "牛奶": "milk" };
+        patient.allergies.forEach(allergy => {
+            for (let [k, v] of Object.entries(allergens)) {
+                if (allergy.includes(k) && (food.tags.includes(`allergen_${v}`) || food.ingredients.some(i => i.includes(k)))) {
+                    res.warnings.push(`⚠️ 嚴重警示：食物含有「${k}」成分，您對此過敏！`);
+                    res.decision = "Avoid";
+                }
+            }
+        });
+
+        // 2. CKD 腎臟病規則
+        if (cond.ckd) {
+            if (nut.sodium > 600) {
+                res.warnings.push("⚠️ 鈉含量過高 (建議單餐<600mg)，可能導致水腫或高血壓。");
+                res.recommendations.push("請勿喝湯，或減少醬料使用。");
+                res.decision = res.decision === "Avoid" ? "Avoid" : "Caution";
+            }
+            if (nut.potassium > 400 || food.tags.includes("high_potassium")) {
+                res.warnings.push("⚠️ 鉀離子偏高，需注意水果或生菜份量。");
+                res.alternatives.push("蔬菜建議燙過再吃 (去除鉀離子)。");
+            }
+            if (nut.protein > 30) {
+                res.warnings.push("⚠️ 蛋白質含量較高，請依醫囑控制總量。");
+            }
+        }
+
+        // 3. DM 糖尿病規則
+        if (cond.dm) {
+            if (nut.sugar > 10 || food.tags.includes("high_sugar")) {
+                res.warnings.push(`⚠️ 含糖量高 (${nut.sugar}g)，容易引起血糖飆升。`);
+                res.decision = "Avoid";
+                res.alternatives.push("改選無糖茶飲或代糖飲料。");
+            }
+            if (nut.carbs > 80) {
+                res.warnings.push("⚠️ 碳水化合物超標，建議飯量減半。");
+                res.recommendations.push("優先攝取蔬菜與蛋白質，最後吃飯。");
+                res.decision = res.decision === "Avoid" ? "Avoid" : "Caution";
+            }
+        }
+
+        // 4. HF 心衰竭 / 高血壓
+        if (cond.htn || cond.hf) {
+            if (nut.sodium > 800) {
+                res.warnings.push("⚠️ 高鈉危險！可能加重心臟負擔。");
+                res.decision = res.decision === "Avoid" ? "Avoid" : "Caution";
+                res.alternatives.push("選擇清蒸或烤的烹調方式，避免滷/炸。");
+            }
+        }
+
+        // 5. 吞嚥障礙
+        if (cond.dysphagia) {
+            if (food.tags.includes("choking_hazard")) {
+                res.warnings.push("⚠️ 窒息風險：含有固體顆粒 (如珍珠)。");
+                res.decision = "Avoid";
+            } else if (food.texture.includes("Regular") || food.texture.includes("Hard")) {
+                res.warnings.push("⚠️ 質地過硬或纖維過多，不易吞嚥。");
+                res.recommendations.push("建議使用食物調理機打成泥狀 (IDDSI 4)。");
+                res.recommendations.push("或添加增稠劑調整液體黏稠度。");
+                res.decision = res.decision === "Avoid" ? "Avoid" : "Caution";
+            }
+        }
+
+        // 6. 胃病
+        if (cond.stomach) {
+            if (food.tags.includes("fried") || food.tags.includes("high_fat")) {
+                res.warnings.push("⚠️ 油炸/高脂食物易延緩胃排空，引發不適。");
+                res.decision = res.decision === "Avoid" ? "Avoid" : "Caution";
+                res.alternatives.push("去除炸皮或改吃白飯/瘦肉。");
+            }
+        }
+
+        // 預設建議
+        if (res.warnings.length === 0) {
+            res.recommendations.push("此餐點符合您的飲食原則，請安心食用。");
+            res.recommendations.push("記得細嚼慢嚥，保持水分攝取。");
+        }
+        if (res.alternatives.length === 0) {
+            res.alternatives.push("搭配一份燙青菜增加纖維。");
+        }
+
+        return res;
+    },
+
+    startAnalysis: function(isSilent = false) {
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        
+        if (!isSilent) {
+            loading.style.display = 'flex';
+            window.scrollTo(0,0);
+            
+            // 根據有無照片顯示不同 Loading 文字
+            if (this.selectedFile) {
+                loadingText.textContent = "正在掃描影像特徵...";
+                setTimeout(() => { loadingText.textContent = "正在估算食物體積與重量..."; }, 1000);
+            } else {
+                loadingText.textContent = "正在模擬 VLM 場景輸入...";
+                setTimeout(() => { loadingText.textContent = "模擬資料生成中..."; }, 1000);
+            }
+            setTimeout(() => { loadingText.textContent = "正在比對個人病歷與用藥禁忌..."; }, 1800);
+        }
+
+        setTimeout(() => {
+            let foodKey;
+            
+            // 核心邏輯修改：
+            // 1. 如果有上傳檔案 -> 用檔名 hash 決定 (固定結果)
+            // 2. 如果沒檔案 -> 純隨機決定 (模擬)
+            const keys = Object.keys(FOOD_DB);
+            
+            if (this.selectedFile) {
+                const name = this.selectedFile.name;
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                foodKey = keys[Math.abs(hash) % keys.length];
+            } else {
+                // 純隨機
+                foodKey = keys[Math.floor(Math.random() * keys.length)];
+            }
+
+            const patient = PATIENTS[this.currentPatientIndex];
+            const result = this.mockAnalyze(foodKey, patient);
+
+            this.renderResult(result);
+            if (!isSilent) {
+                loading.style.display = 'none';
+                this.saveHistory(result, patient);
+            }
+        }, isSilent ? 0 : 2500);
+    },
+
+    renderResult: function(data) {
+        const section = document.getElementById('result-section');
+        section.style.display = 'block';
+
+        // 1. Basic Info
+        document.getElementById('res-food-name').textContent = data.name;
+        document.getElementById('res-confidence').textContent = `AI 信心度: ${data.confidence}%`;
+        
+        // Ingredients
+        const ingContainer = document.getElementById('res-ingredients');
+        ingContainer.innerHTML = data.ingredients.map(i => `<span class="chip">${i}</span>`).join('');
+
+        // Portion & Texture
+        document.getElementById('res-size').textContent = data.portion.size;
+        document.getElementById('res-grams').textContent = `(約 ${data.portion.grams}g)`;
+        document.getElementById('res-texture').textContent = `質地分析: ${data.texture}`;
+
+        // 2. Nutrition Chart
+        const createBar = (label, val, unit, max, isBad = false) => {
+            const pct = Math.min((val / max) * 100, 100);
+            let colorClass = "";
+            if (isBad && pct > 80) colorClass = "bar-danger";
+            else if (isBad && pct > 50) colorClass = "bar-warn";
+            
+            return `
+            <div class="nutrition-row">
+                <div>${label}</div>
+                <div class="progress-bg"><div class="progress-fill ${colorClass}" style="width: ${pct}%"></div></div>
+                <div style="text-align:right; font-weight:bold; ${colorClass ? 'color:var(--danger)' : ''}">${val}${unit}</div>
+            </div>`;
+        };
+
+        const nut = data.nutrition;
+        let chartHtml = "";
+        chartHtml += createBar("熱量", nut.calories, "kcal", 1000);
+        chartHtml += createBar("碳水", nut.carbs, "g", 120, true);
+        chartHtml += createBar("蛋白質", nut.protein, "g", 50);
+        chartHtml += createBar("脂肪", nut.fat, "g", 50, true);
+        chartHtml += createBar("糖", nut.sugar, "g", 30, true);
+        chartHtml += createBar("鈉", nut.sodium, "mg", 2000, true);
+        document.getElementById('nutrition-chart').innerHTML = chartHtml;
+        
+        // Trigger reflow for animation
+        setTimeout(() => {
+            document.querySelectorAll('.progress-fill').forEach(el => {
+                // re-apply width to force transition
+                const target = el.style.width;
+                el.style.width = '0%';
+                setTimeout(() => el.style.width = target, 50);
+            });
+        }, 100);
+
+        // 3. Recommendation Box
+        const box = document.getElementById('res-recommendation-box');
+        const badge = document.getElementById('res-badge');
+        const decisionTitle = document.getElementById('res-decision');
+
+        // Styles reset
+        box.className = "recommendation-box";
+        badge.className = "status-badge";
+
+        if (data.decision === "Avoid") {
+            box.classList.add("rec-danger");
+            badge.classList.add("bg-red");
+            badge.textContent = "不建議食用";
+            decisionTitle.textContent = "⚠️ 不建議食用 (High Risk)";
+            decisionTitle.style.color = "var(--danger)";
+        } else if (data.decision === "Caution") {
+            box.classList.add("rec-warn");
+            badge.classList.add("bg-orange");
+            badge.textContent = "謹慎食用";
+            decisionTitle.textContent = "⚠️ 謹慎食用 (Caution)";
+            decisionTitle.style.color = "#e65100";
+        } else {
+            box.classList.add("rec-safe");
+            badge.classList.add("bg-green");
+            badge.textContent = "推薦食用";
+            decisionTitle.textContent = "✅ 推薦食用 (Safe)";
+            decisionTitle.style.color = "var(--success)";
+        }
+
+        // List items
+        const renderList = (arr, elId) => {
+            document.getElementById(elId).innerHTML = arr.map(item => `<li>${item}</li>`).join('');
+        };
+
+        const allAdvices = [...data.warnings, ...data.recommendations];
+        renderList(allAdvices, 'res-advices');
+        renderList(data.alternatives, 'res-alternatives');
+        
+        // Scroll to result
+        if (window.innerWidth < 600) {
+            section.scrollIntoView({ behavior: 'smooth' });
+        }
+    },
+
+    saveHistory: function(data, patient) {
+        const record = {
+            id: Date.now(),
+            date: new Date().toLocaleString(),
+            patient: patient.name,
+            food: data.name,
+            calories: data.nutrition.calories,
+            decision: data.decision
+        };
+        
+        let history = JSON.parse(localStorage.getItem('vlm_history') || '[]');
+        history.unshift(record); // Add to top
+        localStorage.setItem('vlm_history', JSON.stringify(history));
+        this.loadHistory();
+    },
+
+    loadHistory: function() {
+        const list = document.getElementById('history-list');
+        const history = JSON.parse(localStorage.getItem('vlm_history') || '[]');
+        
+        if (history.length === 0) return;
+
+        list.innerHTML = history.map(item => {
+            let color = item.decision === "Avoid" ? "red" : (item.decision === "Caution" ? "orange" : "green");
+            return `
+            <div class="history-item">
+                <div style="width:10px; height:10px; border-radius:50%; background:${color};"></div>
+                <div>
+                    <div class="history-food">${item.food} <small style="font-weight:normal">(${item.calories} kcal)</small></div>
+                    <div class="history-date">${item.date} • ${item.patient}</div>
+                </div>
+                <div style="font-size:0.8rem; font-weight:bold; color:${color}">${item.decision}</div>
+            </div>`;
+        }).join('');
+    },
+
+    copyReport: function() {
+        const food = document.getElementById('res-food-name').innerText;
+        const decision = document.getElementById('res-decision').innerText;
+        const advices = Array.from(document.querySelectorAll('#res-advices li')).map(li => "• " + li.innerText).join('\n');
+        
+        const text = `【AI 營養飲食評估報告】\n食物：${food}\n評估結果：${decision}\n\n建議事項：\n${advices}`;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            alert("報告已複製到剪貼簿！");
+        });
+    }
+};
+
+// Initialize
+window.onload = () => app.init();
+
+</script>
+</body>
+</html>
